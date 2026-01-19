@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
 
 <title>Wave Game Premium Customizable</title>
   <!-- App-like meta tags -->
@@ -352,8 +353,17 @@ settingsBtn.addEventListener("click", ()=>{ settingsPanel.style.display = settin
 // Start first round
 spawnRound();
 updateUI();
+
+  // Prevent pinch/zoom entirely
+window.addEventListener('touchmove', function(e) {
+  if(e.touches.length > 1){
+    e.preventDefault();
+  }
+}, { passive: false });
+
 </script>
 </body>
 </html>
+
 
 
