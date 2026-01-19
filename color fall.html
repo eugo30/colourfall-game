@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Game Premium Customizable</title>
+<style>
+html, body { margin:0; padding:0; background:#071c1f; overflow:hidden; font-family:sans-serif;}
+canvas { display:block; }
+#ui { position:absolute; top:10px; left:10px; color:white; font-size:20px; background:rgba(0,0,0,0.3); padding:6px 12px; border-radius:8px; box-shadow:0 0 12px rgba(255,255,255,0.3);}
+#leaderboard { position:absolute; bottom:10px; left:10px; color:white; font-size:16px; background:rgba(0,0,0,0.2); padding:6px 12px; border-radius:8px;}
+#restart { position:absolute; top:50px; right:10px; padding:6px 10px; background:#444; color:white; border:none; font-size:16px; cursor:pointer; border-radius:6px; box-shadow:0 0 6px rgba(0,0,0,0.5);}
+#restart:hover{ background:#666;}
+#gameover { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:36px; color:#ff5555; opacity:0; transition:opacity 0.6s ease;}
+#combo { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:28px; color:#ffff66; opacity:0; pointer-events:none; text-shadow:0 0 6px #fff;}
+#settingsBtn { position:absolute; top:10px; right:10px; padding:6px 10px; background:#444; color:white; border:none; font-size:16px; cursor:pointer; border-radius:6px; box-shadow:0 0 6px rgba(0,0,0,0.5);}
+#settingsBtn:hover{ background:#666;}
+#settingsPanel { position:absolute; top:70px; right:10px; background:rgba(0,0,0,0.85); padding:12px; border-radius:8px; color:white; display:none; width:220px; font-size:14px; box-shadow:0 0 12px rgba(255,255,255,0.2);}
+#settingsPanel label { display:block; margin:6px 0 2px; }
+#settingsPanel select, #settingsPanel input[type=range], #settingsPanel input[type=checkbox] { width:100%; margin-bottom:8px; }
+</style>
+</head>
+<body>
+<div id="ui">Round: 1 | Score: 0 | Lives: 3 | High Score: 0</div>
+<div id="leaderboard">Last Scores: -</div>
+<div id="gameover">Game Over!</div>
+<div id="combo"></div>
+<button id="restart">Restart</button>
+<button id="settingsBtn">Settings</button>
+<div id="settingsPanel">
+  <label>Sound</label>
+  <input type="checkbox" id="soundToggle" checked>
+  <label>Volume</label>
+  <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.15">
+  <label>Wave Colors</label>
+  <select id="waveColorSelect">
+    <option value="classic">Classic Green/Blue</option>
+    <option value="gradient">Gradient / Premium</option>
+  </select>
+  <label>Background Mode</label>
+  <select id="bgModeSelect">
+    <option value="dark">Dark</option>
+    <option value="subtle">Subtle Static Change</option>
+    <option value="off">Off</option>
+  </select>
+  <label>Particle Intensity</label>
+  <select id="particleIntensity">
+    <option value="low">Low</option>
+    <option value="medium" selected>Medium</option>
+    <option value="high">High</option>
+  </select>
+  <label>Combo Glow</label>
+  <input type="checkbox" id="comboGlow" checked>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const ui = document.getElementById("ui");
+const leaderboard = document.getElementById("leaderboard");
+const gameoverEl = document.getElementById("gameover");
+const comboEl = document.getElementById("combo");
+const restartBtn = document.getElementById("restart");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+
+// Settings Elements
+const soundToggle = document.getElementById("soundToggle");
+const volumeSlider = document.getElementById("volumeSlider");
+const waveColorSelect = document.getElementById("waveColorSelect");
+const bgModeSelect = document.getElementById("bgModeSelect");
+const particleIntensity = document.getElementById("particleIntensity");
+const comboGlow = document.getElementById("comboGlow");
+
+let alive = true, score = 0, lives = 3, roundNumber = 1, streak=0;
+let waveBatches = [], waveSpeed = 0.2, particles=[];
+let bgColorStatic = "#071c1f";
+
+// High score & history
+let highScore = parseInt(localStorage.getItem('waveHighScore')) || 0;
+let lastScores = JSON.parse(localStorage.getItem('waveLastScores')) || [];
+
+// Save/load settings
+function saveSettings(){ 
+  localStorage.setItem('waveSettings',JSON.stringify({
+    soundToggle:soundToggle.checked,
+    volumeSlider:volumeSlider.value,
+    waveColorSelect:waveColorSelect.value,
+    bgModeSelect:bgModeSelect.value,
+    particleIntensity:particleIntensity.value,
+    comboGlow:comboGlow.checked
+  }));
+}
+function loadSettings(){ 
+  const s = JSON.parse(localStorage.getItem('waveSettings'));
+  if(s){
+    soundToggle.checked=s.soundToggle;
+    volumeSlider.value=s.volumeSlider;
+    waveColorSelect.value=s.waveColorSelect;
+    bgModeSelect.value=s.bgModeSelect;
+    particleIntensity.value=s.particleIntensity;
+    comboGlow.checked=s.comboGlow;
+  }
+}
+loadSettings();
+
+// Round color sets
+const roundColors = [
+  {green:"#00ff66", blue:"#3399ff"},
+  {green:"#33ff99", blue:"#66ccff"},
+  {green:"#66ffcc", blue:"#99ddff"},
+  {green:"#99ffcc", blue:"#aaddff"},
+  {green:"#ccff99", blue:"#bbddff"}
+];
+let currentColorSet = 0;
+
+function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight;}
+window.addEventListener("resize", resize);
+resize();
+
+// Audio
+const audio = new (window.AudioContext||window.webkitAudioContext)();
+function ping(freq=440){
+  if(!soundToggle.checked) return;
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.frequency.value=freq*(1+streak*0.05); 
+  g.gain.value=parseFloat(volumeSlider.value) + streak*0.02;
+  g.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+0.1);
+  o.connect(g); g.connect(audio.destination);
+  o.start(); o.stop(audio.currentTime+0.1);
+}
+
+// Particle class
+class Particle{
+  constructor(x,y,color){
+    this.x=x; this.y=y; this.color=color; this.vx=(Math.random()-0.5)*2; this.vy=-Math.random()*2;
+    this.alpha=1; this.radius=Math.random()*3+2;
+  }
+  update(dt){
+    this.x += this.vx*dt*0.1; this.y += this.vy*dt*0.1; this.alpha -= dt*0.001;
+  }
+}
+
+// Wave class
+class Wave{
+  constructor(x,color,delay,dx=0,radius=25){
+    this.x=x; this.y=-30; this.color=color; this.tapped=false;
+    this.delay=delay; this.spawnTime=performance.now(); this.dx=dx; this.radius=radius;
+    this.sway=Math.random()*0.6-0.3; this.bounce=0; this.rotation=Math.random()*0.1-0.05;
+  }
+  update(dt){
+    if(performance.now()-this.spawnTime>=this.delay){
+      let speedFactor = 1 + streak*0.1;
+      this.y += waveSpeed*dt*speedFactor;
+      this.x += (this.sway+Math.sin(this.y*0.01)*0.5)*dt*0.05*speedFactor;
+      this.rotation += Math.sin(this.y*0.01)*0.002*speedFactor;
+      if(this.bounce>0) this.radius = 25 + this.bounce;
+      else this.radius = 25;
+      if(this.bounce>0) this.bounce -= dt*0.01;
+    }
+  }
+}
+
+// Round pattern
+const wavePattern = [
+  {color:"green"}, {color:"green"}, {color:"blue"},
+  {color:"green"}, {color:"blue"}, {color:"green"},
+  {color:"green"}, {color:"blue"}
+];
+
+function spawnRound(){
+  waveBatches = [];
+  wavePattern.forEach((w,i)=>{
+    let x = canvas.width*0.1 + Math.random()*canvas.width*0.8;
+    let dx = 0; if(i%3===0) dx=-0.1; if(i%3===2) dx=0.1;
+    let radius = 22 + Math.random()*6;
+    let color = w.color==="green"?roundColors[currentColorSet].green:roundColors[currentColorSet].blue;
+    waveBatches.push(new Wave(x,color,i*200,dx,radius));
+  });
+}
+
+// Input
+canvas.addEventListener("pointerdown", e=>{
+  if(!alive){ reset(); return;}
+  const clickX = e.clientX, clickY = e.clientY;
+  for(let w of waveBatches){
+    if(!w.tapped){
+      const dx = clickX - w.x, dy = clickY - w.y;
+      if(Math.sqrt(dx*dx + dy*dy) < w.radius){
+        w.tapped = true;
+        score += w.color===roundColors[currentColorSet].green?1:2;
+        w.bounce = 10; streak++;
+        ping(w.color===roundColors[currentColorSet].green?440:660);
+        showCombo(streak, w.x, w.y);
+        spawnParticles(w.x, w.y, w.color);
+        updateUI();
+        return;
+      }
+    }
+  }
+  streak=0; // reset streak if miss
+});
+
+// Combo popup
+function showCombo(streak,x,y){
+  if(streak<2 || !comboGlow.checked) return;
+  comboEl.textContent = `Combo x${streak}!`;
+  comboEl.style.left = x + "px";
+  comboEl.style.top = y-30 + "px";
+  comboEl.style.opacity=1;
+  setTimeout(()=>{ comboEl.style.opacity=0; },300);
+}
+
+// Spawn particles
+function spawnParticles(x,y,color){
+  let count = particleIntensity.value==="low"?3: particleIntensity.value==="medium"?5:8;
+  for(let i=0;i<count;i++) particles.push(new Particle(x,y,color));
+}
+
+// Update UI
+function updateUI(){
+  ui.textContent = `Round: ${roundNumber} | Score: ${score} | Lives: ${lives} | High Score: ${highScore}`;
+  leaderboard.textContent = `Last Scores: ${lastScores.length>0?lastScores.join(', '):'-'}`;
+}
+
+// Game loop
+let last = performance.now();
+function loop(t){
+  const dt = t-last;
+  last = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function update(dt){
+  if(!alive) return;
+  waveBatches.forEach(w=>w.update(dt));
+
+  // remove tapped or missed waves
+  waveBatches.forEach(w=>{
+    if(!w.tapped && w.y>canvas.height+30){
+      w.tapped=true;
+      lives--;
+      streak=0;
+      if(lives<=0){
+        alive=false;
+        gameoverEl.style.opacity=1;
+        lastScores.push(score);
+        if(lastScores.length>5) lastScores.shift();
+        localStorage.setItem('waveLastScores',JSON.stringify(lastScores));
+        if(score>highScore){ highScore = score; localStorage.setItem('waveHighScore',highScore); }
+        updateUI();
+      }
+    }
+  });
+  waveBatches = waveBatches.filter(w=>!w.tapped);
+
+  // Round complete
+  if(waveBatches.length===0 && alive){
+    roundNumber++;
+    waveSpeed += 0.03;
+    currentColorSet = (currentColorSet+1)%roundColors.length; // shift colors per round
+    spawnRound();
+    updateUI();
+  }
+
+  // Update particles
+  particles.forEach(p=>p.update(dt));
+  particles = particles.filter(p=>p.alpha>0);
+
+  // Optional subtle background color
+  if(bgModeSelect.value==="subtle"){
+    let r = 10 + Math.random()*10, g=12+Math.random()*10, b=31+Math.random()*10;
+    bgColorStatic = `rgb(${r},${g},${b})`;
+  }
+}
+
+function draw(){
+  // Background
+  ctx.fillStyle = bgModeSelect.value==="off"?"#071c1f":bgColorStatic;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Draw wave progress circle
+  let radius = Math.min(canvas.width,canvas.height)/2-40;
+  ctx.beginPath();
+  ctx.strokeStyle="rgba(255,255,255,0.15)";
+  ctx.lineWidth=6;
+  ctx.arc(canvas.width/2,canvas.height/2,radius,0,Math.PI*2);
+  ctx.stroke();
+  let progress = (8-waveBatches.length)/8;
+  ctx.beginPath();
+  ctx.strokeStyle=roundColors[currentColorSet].green;
+  ctx.lineWidth=6;
+  ctx.arc(canvas.width/2,canvas.height/2,radius,-Math.PI/2, -Math.PI/2 + progress*Math.PI*2);
+  ctx.stroke();
+
+  // Draw waves
+  for(let w of waveBatches){
+    let gradient = ctx.createRadialGradient(w.x,w.y,w.radius*0.3,w.x,w.y,w.radius);
+    gradient.addColorStop(0,"#fff");
+    gradient.addColorStop(0.3,w.color);
+    gradient.addColorStop(1,"#000");
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = w.color;
+    ctx.shadowBlur = 12 + streak*2;
+    ctx.save();
+    ctx.translate(w.x,w.y);
+    ctx.rotate(w.rotation);
+    ctx.beginPath();
+    ctx.arc(0,0,w.radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+
+  // Draw particles
+  particles.forEach(p=>{
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha=1;
+  });
+}
+
+// Restart
+function reset(){
+  alive=true; score=0; lives=3; roundNumber=1; waveSpeed=0.2; streak=0; currentColorSet=0; bgColorStatic="#071c1f";
+  gameoverEl.style.opacity=0;
+  spawnRound();
+  updateUI();
+}
+restartBtn.addEventListener("click", reset);
+
+// Settings toggle
+settingsBtn.addEventListener("click", ()=>{ settingsPanel.style.display = settingsPanel.style.display==="none"?"block":"none"; saveSettings(); });
+
+// Start first round
+spawnRound();
+updateUI();
+</script>
+</body>
+</html>
