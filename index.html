@@ -84,6 +84,8 @@ const particleIntensity = document.getElementById("particleIntensity");
 const comboGlow = document.getElementById("comboGlow");
 
 let alive = true, score = 0, lives = 3, roundNumber = 1, streak=0;
+let ringHue = 140;   // circle color
+let ringGlow = 0;   // circle glow strength
 let waveBatches = [], waveSpeed = 0.2, particles=[];
 let bgColorStatic = "#071c1f";
 
@@ -200,9 +202,15 @@ canvas.addEventListener("pointerdown", e=>{
       const dx = clickX - w.x, dy = clickY - w.y;
       if(Math.sqrt(dx*dx + dy*dy) < w.radius){
         w.tapped = true;
-        score += w.color===roundColors[currentColorSet].green?1:2;
-        w.bounce = 10; streak++;
-        ping(w.color===roundColors[currentColorSet].green?440:660);
+        score += w.color===roundColors[currentColorSet].green ? 1 : 2;
+        w.bounce = 10;
+        streak++;
+
+        // 👉 ADD THESE TWO LINES
+        ringHue = w.color === roundColors[currentColorSet].green ? 140 : 210;
+        ringGlow = 25;
+
+        ping(w.color===roundColors[currentColorSet].green ? 440 : 660);
         showCombo(streak, w.x, w.y);
         spawnParticles(w.x, w.y, w.color);
         updateUI();
@@ -210,7 +218,7 @@ canvas.addEventListener("pointerdown", e=>{
       }
     }
   }
-  streak=0; // reset streak if miss
+  streak = 0;
 });
 
 // Combo popup
