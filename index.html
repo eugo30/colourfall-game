@@ -86,6 +86,8 @@ const comboGlow = document.getElementById("comboGlow");
 let alive = true, score = 0, lives = 3, roundNumber = 1, streak=0;
 let ringHue = 140;   // circle color
 let ringGlow = 0;   // circle glow strength
+  let ringPulse = 0;
+let ringFlash = 0;
 let waveBatches = [], waveSpeed = 0.2, particles=[];
 let bgColorStatic = "#071c1f";
 
@@ -289,6 +291,14 @@ function update(dt){
   // Update particles
   particles.forEach(p=>p.update(dt));
   particles = particles.filter(p=>p.alpha>0);
+  
+// Ring intensity dynamics (THUNDER MODE)
+ringPulse += dt * 0.005 * (1 + streak * 0.15);
+ringGlow *= 0.92;
+
+if (streak >= 3) {
+  ringFlash = Math.sin(ringPulse) * (6 + streak * 2);
+}
 
   // Optional subtle background color
   if(bgModeSelect.value==="subtle"){
@@ -307,21 +317,25 @@ function draw(){
 let radius = Math.min(canvas.width, canvas.height) / 2 - 40;
 let progress = (8 - waveBatches.length) / 8;
 
+let dynamicHue = (ringHue + roundNumber * 12 + streak * 6) % 360;
+let flashGlow = ringGlow + Math.abs(ringFlash);
+
 ctx.save();
 ctx.beginPath();
-ctx.lineWidth = 6;
-ctx.strokeStyle = `hsla(${ringHue}, 90%, 60%, 0.25)`;
-ctx.shadowColor = `hsla(${ringHue}, 100%, 60%, 0.8)`;
-ctx.shadowBlur = ringGlow;
+ctx.lineWidth = 6 + streak * 0.3;
+ctx.strokeStyle = `hsla(${dynamicHue}, 95%, 60%, 0.35)`;
+ctx.shadowColor = `hsla(${dynamicHue}, 100%, 65%, 1)`;
+ctx.shadowBlur = flashGlow;
 ctx.arc(
   canvas.width / 2,
   canvas.height / 2,
-  radius,
+  radius + Math.sin(ringPulse) * 4,
   -Math.PI / 2,
   -Math.PI / 2 + progress * Math.PI * 2
 );
 ctx.stroke();
 ctx.restore();
+
 
   // Draw waves
   for(let w of waveBatches){
@@ -375,10 +389,23 @@ window.addEventListener('touchmove', function(e) {
     e.preventDefault();
   }
 }, { passive: false });
+  
+// settings close when touch outside
+  document.addEventListener("pointerdown", (e) => {
+  if (
+    settingsPanel.style.display === "block" &&
+    !settingsPanel.contains(e.target) &&
+    e.target !== settingsBtn
+  ) {
+    settingsPanel.style.display = "none";
+    saveSettings();
+  }
+});
 
 </script>
 </body>
 </html>
+
 
 
 
