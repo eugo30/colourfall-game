@@ -2,7 +2,8 @@ const CACHE = "color-fall-v1";
 const FILES = [
   "./",
   "./index.html",
-  "./icon.png",
+  "./icon-192.png",
+  "./icon-512.png",
   "./manifest.json"
 ];
 
