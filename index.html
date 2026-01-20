@@ -13,6 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- App icon -->
+  <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <style>
@@ -402,9 +403,28 @@ window.addEventListener('touchmove', function(e) {
   }
 });
 
+/* ------------------ PWA INSTALL ------------------ */
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = "block";
+});
+
+installBtn.onclick = ()=>{
+  deferredPrompt.prompt();
+  installBtn.style.display = "none";
+};
+
+/* ------------------ SERVICE WORKER ------------------ */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("service-worker.js");
+}
+  
 </script>
 </body>
 </html>
+
 
 
 
