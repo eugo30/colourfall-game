@@ -403,3 +403,42 @@ settingsBtn.addEventListener("click", ()=>{ settingsPanel.style.display = settin
 // Start first round
 spawnRound();
 updateUI();
+
+
+
+  // Prevent pinch/zoom entirely
+window.addEventListener('touchmove', function(e) {
+  if(e.touches.length > 1){
+    e.preventDefault();
+  }
+}, { passive: false });
+  
+// settings close when touch outside
+  document.addEventListener("pointerdown", (e) => {
+  if (
+    settingsPanel.style.display === "block" &&
+    !settingsPanel.contains(e.target) &&
+    e.target !== settingsBtn
+  ) {
+    settingsPanel.style.display = "none";
+    saveSettings();
+  }
+});
+
+/* ------------------ PWA INSTALL ------------------ */
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = "block";
+});
+
+installBtn.onclick = ()=>{
+  deferredPrompt.prompt();
+  installBtn.style.display = "none";
+};
+
+/* ------------------ SERVICE WORKER ------------------ */
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("service-worker.js");
+}
