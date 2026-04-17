@@ -1,2 +1,3 @@
 # colourfall-game
 A fast-paced color fall tapping game where timing, combos, and focus decide everything.
+Strike on the color  falls, avoid being hit or hitting wrong balls
