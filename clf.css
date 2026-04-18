@@ -12,4 +12,29 @@ canvas { display:block; }
 #settingsPanel { position:absolute; top:70px; right:10px; background:rgba(0,0,0,0.85); padding:12px; border-radius:8px; color:white; display:none; width:220px; font-size:14px; box-shadow:0 0 12px rgba(255,255,255,0.2);}
 #settingsPanel label { display:block; margin:6px 0 2px; }
 #settingsPanel select, #settingsPanel input[type=range], #settingsPanel input[type=checkbox] { width:100%; margin-bottom:8px; }
- 
+#weaponBar{
+    position:absolute;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:10px;
+    z-index:100;
+  }
+  
+  .weapon{
+    padding:10px 14px;
+    border:none;
+    border-radius:10px;
+    background:#1f2d3a;
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  
+  .weapon.active{
+    background:#00d9ff;
+    color:#000;
+    transform:scale(1.1);
+  }
