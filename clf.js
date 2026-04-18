@@ -1,3 +1,37 @@
+//global
+// ===== WEAPONS =====
+const weapons = {
+  basic: {
+    name: "Basic",
+    fireRate: 300,
+    speed: 10,
+    spread: 0,
+    damage: 1,
+    range: 60
+  },
+  spread: {
+    name: "Spread",
+    fireRate: 500,
+    speed: 9,
+    spread: 0.25,
+    damage: 1,
+    range: 50
+  },
+  sniper: {
+    name: "Sniper",
+    fireRate: 800,
+    speed: 16,
+    spread: 0,
+    damage: 3,
+    range: 120
+  }
+};
+
+let currentWeapon = "basic";
+let lastShot = 0;
+
+
+
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -16,6 +50,26 @@ const waveColorSelect = document.getElementById("waveColorSelect");
 const bgModeSelect = document.getElementById("bgModeSelect");
 const particleIntensity = document.getElementById("particleIntensity");
 const comboGlow = document.getElementById("comboGlow");
+
+const weaponButtons = document.querySelectorAll(".weapon");
+
+
+//call weapons ....
+weaponButtons.forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    currentWeapon = btn.dataset.w;
+
+    // UI highlight
+    weaponButtons.forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+
+    recoil = 6; // small kick feel
+
+  });
+});
+
+
+
 
 let alive = true, score = 0, lives = 3, roundNumber = 1, streak=0;
 let waveBatches = [], waveSpeed = 0.2, particles=[];
@@ -96,6 +150,29 @@ function resize(){
     cursor.y = e.touches[0].clientY - r.top;
   });
 
+//dragg gun
+  let isDragging = false;
+
+  canvas.addEventListener("pointerdown", e=>{
+    isDragging = true;
+  });
+  
+  canvas.addEventListener("pointerup", ()=>{
+    isDragging = false;
+  });
+  
+  canvas.addEventListener("pointermove", e=>{
+    if(isDragging){
+      const rect = canvas.getBoundingClientRect();
+      let x = e.clientX - rect.left;
+  
+      // clamp inside screen
+      gun.x = Math.max(40, Math.min(canvas.width - 40, x));
+    }
+  });
+
+
+
 
 // Audio
 const audio = new (window.AudioContext||window.webkitAudioContext)();
@@ -112,26 +189,44 @@ function ping(freq=440){
 
 // Particle
 class Particle{
-  constructor(x,y,color){
-    this.x=x; this.y=y;
-    this.vx=(Math.random()-0.5)*2;
-    this.vy=-Math.random()*2;
-    this.alpha=1;
-    this.radius=Math.random()*3+2;
-    this.color=color;
+  constructor(x,y,color,type="normal"){
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.vx = (Math.random()-0.5)*2;
+    this.vy = Math.random()*2 + 1; // always falling DOWN
+    this.alpha = 1;
+    this.radius = Math.random()*3+2;
+    this.type = type;
+    this.dead = false;
   }
+
   update(dt){
-    this.x+=this.vx*dt*0.1;
-    this.y+=this.vy*dt*0.1;
-    this.alpha-=dt*0.001;
+    this.vy += 0.05; // gravity
+    this.x += this.vx * dt*0.1;
+    this.y += this.vy * dt*0.1;
+
+    // 👉 ONLY fade when near ground
+    if(this.y > canvas.height - 40){
+      this.alpha -= 0.03;
+    }
+
+    if(this.alpha <= 0) this.dead = true;
   }
 }
+
+
+
+
+
 // Wave class
 class Wave{
   constructor(x,color,delay,dx=0,radius=25){
     this.x=x; this.y=-30; this.color=color; this.tapped=false;
     this.delay=delay; this.spawnTime=performance.now(); this.dx=dx; this.radius=radius;
     this.sway=Math.random()*0.6-0.3; this.bounce=0; this.rotation=Math.random()*0.1-0.05;
+    this.falling = false;
+  
   }
   update(dt){
     if(performance.now()-this.spawnTime>=this.delay){
@@ -167,6 +262,34 @@ function spawnRound(){
 
 
 
+function shoot(){
+  let now = performance.now();
+  let w = weapons[currentWeapon];
+
+  if(now - lastShot < w.fireRate) return;
+  lastShot = now;
+
+  let shots = currentWeapon === "spread" ? 3 : 1;
+
+  for(let i=0;i<shots;i++){
+    let angleOffset = (i - (shots-1)/2) * w.spread;
+
+    bullets.push({
+      x: gun.x,
+      y: gun.y,
+      angle: gun.angle + angleOffset,
+      life: 0,
+      speed: w.speed,
+      damage: w.damage,
+      range: w.range
+    });
+  }
+
+  recoil = 10;
+}
+
+
+
 // Input
 // Input
 canvas.addEventListener("pointerdown", e=>{
@@ -193,9 +316,8 @@ canvas.addEventListener("pointerdown", e=>{
     }
   
     if(!hit){
-      bullets.push({x:gun.x,y:gun.y,angle:gun.angle,life:0});
-      recoil=8;
-      streak=0;
+      shoot();
+      streak = 0;
     }
   });
 
@@ -216,13 +338,35 @@ function showCombo(streak,x,y){
 
 // Spawn particles
 function spawnParticles(x,y,color){
-  let count = particleIntensity.value==="low"?3: particleIntensity.value==="medium"?5:8;
-  for(let i=0;i<count;i++) particles.push(new Particle(x,y,color));
+  let count = particleIntensity.value==="low"?3: particleIntensity.value==="medium"?6:10;
+
+  for(let i=0;i<count;i++){
+    let type = Math.random() < 0.2 ? "danger" : "normal"; // 20% danger
+    let col = type==="danger" ? "#ff3333" : color;
+
+    particles.push(new Particle(x,y,col,type));
+  }
 }
+
+
+let weaponKeys = Object.keys(weapons);
+let weaponIndex = 0;
+
+// press to switch
+window.addEventListener("keydown", e=>{
+  if(e.key === "q"){
+    weaponIndex = (weaponIndex + 1) % weaponKeys.length;
+    currentWeapon = weaponKeys[weaponIndex];
+  }
+});
+
+
+
+
 
 // Update UI
 function updateUI(){
-  ui.textContent = `Round: ${roundNumber} | Score: ${score} | Lives: ${lives} | High Score: ${highScore}`;
+  ui.textContent = `Round: ${roundNumber} | Score: ${score} | Lives: ${lives} | High Score: ${highScore}| Gun: ${weapons[currentWeapon].name}`;
   leaderboard.textContent = `Last Scores: ${lastScores.length>0?lastScores.join(', '):'-'}`;
 }
 
@@ -244,39 +388,123 @@ function update(dt){
 
  // auto aim
  let dx = cursor.x - gun.x;
- let dy = cursor.y - gun.y;
- let target = Math.atan2(dy,dx);
- gun.angle += (target - gun.angle) * 0.2;
+let dy = cursor.y - gun.y;
+let target = Math.atan2(dy, dx);
+
+// smooth damping
+gun.angle += (target - gun.angle) * 0.15;
 
   waveBatches.forEach(w=>w.update(dt));
 
+  // ===== HIT GUN DETECTION =====
+waveBatches.forEach(w=>{
+  if(!w.tapped){
+    let dx = w.x - gun.x;
+    let dy = w.y - gun.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    // collision with gun base
+    if(dist < w.radius + 20){ // 20 = gun size buffer
+      w.tapped = true;
+
+      lives--;
+      streak = 0;
+
+      // feedback
+      recoil = 12;
+      spawnParticles(gun.x, gun.y, "#ff4444");
+
+      if(lives <= 0){
+        alive = false;
+        gameoverEl.style.opacity = 1;
+
+        lastScores.push(score);
+        if(lastScores.length > 5) lastScores.shift();
+        localStorage.setItem('waveLastScores', JSON.stringify(lastScores));
+
+        if(score > highScore){
+          highScore = score;
+          localStorage.setItem('waveHighScore', highScore);
+        }
+      }
+
+      updateUI();
+    }
+  }
+});
+
+// ===== PARTICLE COLLISION WITH GUN =====
+particles.forEach(p=>{
+  if(!p.dead && p.type==="danger"){
+    let dx = p.x - gun.x;
+    let dy = p.y - gun.y;
+
+    if(Math.sqrt(dx*dx + dy*dy) < 20){
+      p.dead = true;
+
+      lives--;
+      streak = 0;
+      recoil = 10;
+
+      spawnParticles(gun.x, gun.y, "#ff0000");
+
+      if(lives <= 0){
+        alive = false;
+        gameoverEl.style.opacity = 1;
+      }
+
+      updateUI();
+    }
+  }
+});
+
+
+
+
+
  // bullets
  bullets.forEach(b=>{
-    b.life++;
-    b.x+=Math.cos(b.angle)*10;
-    b.y+=Math.sin(b.angle)*10;
-    b.x+=Math.sin(b.life*0.2)*2;
+  b.life++;
 
-    waveBatches.forEach(w=>{
-      if(!w.tapped && Math.hypot(b.x-w.x,b.y-w.y)<w.radius){
-        w.tapped=true;
-        score++;
-        streak++;
-        spawnParticles(w.x,w.y,w.color);
-        b.life=999;
-      }
-    });
+  b.x += Math.cos(b.angle) * b.speed;
+  b.y += Math.sin(b.angle) * b.speed;
+
+  // swing motion
+  b.x += Math.sin(b.life * 0.15) * 1.5;
+
+  // RANGE LIMIT
+  if(b.life > b.range * 0.8){
+    // fade bullet (visual warning)
+  }
+
+  // collision
+  waveBatches.forEach(w=>{
+    if(!w.tapped && Math.hypot(b.x-w.x,b.y-w.y)<w.radius){
+      w.tapped = true;
+
+      score += b.damage;
+      streak++;
+
+      spawnParticles(w.x,w.y,w.color);
+
+      b.dead = true;
+    }
   });
+});
 
-  bullets=bullets.filter(b=>b.life<60);
-
+// cleanup
+bullets = bullets.filter(b=>!b.dead);
 
   // remove tapped or missed waves
   waveBatches.forEach(w=>{
-    if(!w.tapped && w.y>canvas.height+30){
+    if(!w.tapped && w.y>canvas.height+50){
       w.tapped=true;
       lives--;
       streak=0;
+
+      recoil = 10;
+      spawnParticles(w.x, w.y, "#ff8800");
+
       if(lives<=0){
         alive=false;
         gameoverEl.style.opacity=1;
@@ -301,8 +529,8 @@ function update(dt){
 
   // Update particles
   particles.forEach(p=>p.update(dt));
-  particles = particles.filter(p=>p.alpha>0);
-
+   
+  particles = particles.filter(p => !p.dead);
   // Optional subtle background color
   if(bgModeSelect.value==="subtle"){
     let r = 10 + Math.random()*10, g=12+Math.random()*10, b=31+Math.random()*10;
@@ -371,20 +599,40 @@ function draw(){
 
   // bullets
   bullets.forEach(b=>{
-    ctx.fillStyle="#0ff";
-    ctx.fillRect(b.x,b.y,3,10);
+    if(currentWeapon === "sniper"){
+      ctx.fillStyle = "#ff0000";
+      ctx.fillRect(b.x,b.y,2,16);
+    }
+    else if(currentWeapon === "spread"){
+      ctx.fillStyle = "#00ffff";
+      ctx.fillRect(b.x,b.y,4,8);
+    }
+    else{
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(b.x,b.y,3,10);
+    }
   });
-
 
 
   // Draw particles
   particles.forEach(p=>{
     ctx.globalAlpha = p.alpha;
-    ctx.fillStyle=p.color;
+  
+    if(p.type==="danger"){
+      ctx.fillStyle = "#ff3333";
+      ctx.shadowColor = "red";
+      ctx.shadowBlur = 10;
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = 0;
+    }
+  
     ctx.beginPath();
     ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
     ctx.fill();
-    ctx.globalAlpha=1;
+  
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
   });
 }
 
