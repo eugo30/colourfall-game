@@ -1,10 +1,12 @@
-const CACHE = "color-fall-v1";
+const CACHE = "color-fall-v2";
 const FILES = [
   "./",
   "./index.html",
+  "./clf.css",
+  "./clf.js",
+  "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png",
-  "./manifest.json"
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", e=>{
