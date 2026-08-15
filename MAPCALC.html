@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced MAP & Pulse Pressure Calculator</title>
+  <style>
+    :root {
+      --bg-color: #070a12;
+      --card-bg: rgba(18, 24, 40, 0.75);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      
+      /* Dynamic Theme Colors - Managed by JS */
+      --active-glow: #06b6d4;
+      --normal-color: #10b981;
+      --warning-color: #f59e0b;
+      --critical-color: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top center, #1e1b4b 0%, var(--bg-color) 70%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .container {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+      position: relative;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    /* Glowing Animated Title */
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-top: 0.35rem;
+      letter-spacing: 0.5px;
+    }
+
+    .input-group {
+      margin-bottom: 1.5rem;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 1rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .unit-display {
+      font-size: 0.9rem;
+      color: #38bdf8;
+      font-weight: 700;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+    }
+
+    .input-control-row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .btn-step {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 8px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .btn-step:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-step:active {
+      transform: translateY(0);
+    }
+
+    input[type="number"] {
+      flex: 1;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.55rem;
+      color: #fff;
+      font-size: 1.25rem;
+      font-weight: 700;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    input[type="number"]:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Advanced Glowing Range Slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 12px #38bdf8;
+      transition: transform 0.1s ease, background 0.3s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Dynamic Result Display Card */
+    .display-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 1.5rem;
+      text-align: center;
+      margin-top: 1.5rem;
+      transition: all 0.4s ease;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .result-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-sub);
+    }
+
+    .result-value {
+      font-size: 3.25rem;
+      font-weight: 900;
+      line-height: 1.1;
+      margin: 0.5rem 0;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+    }
+
+    .result-value span {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--text-sub);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 30px;
+      font-size: 0.825rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px currentColor;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
+    .metric-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      text-align: left;
+    }
+
+    .metric-box header-title {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-box strong {
+      display: block;
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-top: 0.2rem;
+      transition: color 0.3s ease;
+    }
+
+    .target-sub {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      margin-top: 0.15rem;
+    }
+
+    /* Risk Factors Box */
+    .risk-card {
+      margin-top: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1rem;
+      text-align: left;
+    }
+
+    .risk-card h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-sub);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .risk-list {
+      list-style-type: none;
+      font-size: 0.825rem;
+      color: var(--text-main);
+      line-height: 1.4;
+    }
+
+    .risk-list li {
+      margin-bottom: 0.4rem;
+      position: relative;
+      padding-left: 1.2rem;
+    }
+
+    .risk-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0.3rem;
+      color: var(--active-glow);
+    }
+
+    /* Hide numeric arrows */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>MAP calc</h1>
+      <p>Hemodynamic Risk Assessment</p>
+    </header>
+
+    <!-- Systolic Input Block -->
+    <div class="input-group">
+      <div class="label-row">
+        <label for="sbp">Systolic (SBP)</label>
+        <span class="unit-display"><span id="sbpVal">120</span> mmHg</span>
+      </div>
+      <div class="input-control-row">
+        <button class="btn-step" onclick="adjustValue('sbp', -10)">-10</button>
+        <button class="btn-step" onclick="adjustValue('sbp', -1)">-1</button>
+        <input type="number" id="sbp" value="120" min="40" max="260">
+        <button class="btn-step" onclick="adjustValue('sbp', 1)">+1</button>
+        <button class="btn-step" onclick="adjustValue('sbp', 10)">+10</button>
+      </div>
+      <input type="range" id="sbpSlider" value="120" min="40" max="260">
+    </div>
+
+    <!-- Diastolic Input Block -->
+    <div class="input-group">
+      <div class="label-row">
+        <label for="dbp">Diastolic (DBP)</label>
+        <span class="unit-display"><span id="dbpVal">80</span> mmHg</span>
+      </div>
+      <div class="input-control-row">
+        <button class="btn-step" onclick="adjustValue('dbp', -10)">-10</button>
+        <button class="btn-step" onclick="adjustValue('dbp', -1)">-1</button>
+        <input type="number" id="dbp" value="80" min="20" max="160">
+        <button class="btn-step" onclick="adjustValue('dbp', 1)">+1</button>
+        <button class="btn-step" onclick="adjustValue('dbp', 10)">+10</button>
+      </div>
+      <input type="range" id="dbpSlider" value="80" min="20" max="160">
+    </div>
+
+    <!-- Results Display -->
+    <div class="display-card" id="card">
+      <div class="result-title">Mean Arterial Pressure (MAP)</div>
+      <div class="result-value" id="mapVal">93.3 <span>mmHg</span></div>
+      <div class="status-badge" id="statusBadge">Optimal Perfusion</div>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <span class="header-title">Pulse Pressure (PP)</span>
+          <strong id="ppVal">40 mmHg</strong>
+          <div class="target-sub">Target: 30 - 50 mmHg</div>
+        </div>
+        <div class="metric-box">
+          <span class="header-title">MAP Target</span>
+          <strong style="color: #38bdf8;">70 - 100 mmHg</strong>
+          <div class="target-sub">Min required MAP: 65 mmHg</div>
+        </div>
+      </div>
+
+      <!-- Dynamic Risk Factors section -->
+      <div class="risk-card">
+        <h3>Clinical Implications & Risks</h3>
+        <ul class="risk-list" id="riskList">
+          <li>Adequate organ perfusion pressure (Brain, Kidneys, Heart).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    //dom value
+    const sbpInput = document.getElementById('sbp');
+    const dbpInput = document.getElementById('dbp');
+    const sbpSlider = document.getElementById('sbpSlider');
+    const dbpSlider = document.getElementById('dbpSlider');
+
+    const sbpVal = document.getElementById('sbpVal');
+    const dbpVal = document.getElementById('dbpVal');
+    const mapVal = document.getElementById('mapVal');
+    const ppVal = document.getElementById('ppVal');
+
+    const statusBadge = document.getElementById('statusBadge');
+    const card = document.getElementById('card');
+    const riskList = document.getElementById('riskList');
+
+    function adjustValue(inputId, change) {
+      const input = document.getElementById(inputId);
+      let newVal = (parseInt(input.value) || 0) + change;
+      newVal = Math.max(parseInt(input.min), Math.min(parseInt(input.max), newVal));
+      input.value = newVal;
+      
+      const slider = document.getElementById(inputId + 'Slider');
+      syncAndCalculate(input, slider, inputId === 'sbp');
+    }
+
+    function syncAndCalculate(source, target, isSbp) {
+      target.value = source.value;
+      if (isSbp) sbpVal.textContent = source.value;
+      else dbpVal.textContent = source.value;
+      calculateMetrics();
+    }
+
+    sbpInput.addEventListener('input', () => syncAndCalculate(sbpInput, sbpSlider, true));
+    sbpSlider.addEventListener('input', () => syncAndCalculate(sbpSlider, sbpInput, true));
+    dbpInput.addEventListener('input', () => syncAndCalculate(dbpInput, dbpSlider, false));
+    dbpSlider.addEventListener('input', () => syncAndCalculate(dbpSlider, dbpInput, false));
+
+    function calculateMetrics() {
+      const sbp = parseFloat(sbpInput.value) || 0;
+      const dbp = parseFloat(dbpInput.value) || 0;
+
+      if (sbp <= dbp) {
+        mapVal.innerHTML = `-- <span>mmHg</span>`;
+        mapVal.style.color = "var(--text-sub)";
+        mapVal.style.textShadow = "none";
+        statusBadge.textContent = "Invalid Input (SBP ≤ DBP)";
+        statusBadge.style.color = "#ef4444";
+        statusBadge.style.backgroundColor = "rgba(239, 68, 68, 0.15)";
+        card.style.borderColor = "#ef4444";
+        card.style.boxShadow = "0 0 25px rgba(239, 68, 68, 0.3)";
+        ppVal.textContent = `-- mmHg`;
+        ppVal.style.color = "var(--text-sub)";
+        riskList.innerHTML = `<li>Systolic pressure must be higher than diastolic pressure.</li>`;
+        return;
+      }
+//calculations happens here
+      const pulsePressure = sbp - dbp;
+      const map = dbp + (pulsePressure / 3);
+
+      mapVal.innerHTML = `${map.toFixed(1)} <span>mmHg</span>`;
+      ppVal.textContent = `${pulsePressure} mmHg`;
+
+      // Color Palette & Dynamic Status Engine
+      let activeColor = '#10b981'; // Default Normal Green
+      let glowColor = 'rgba(16, 185, 129, 0.4)';
+      let label = 'Optimal Perfusion';
+      let risks = [];
+
+      // Evaluate MAP Risks
+      if (map < 65) {
+        activeColor = '#ef4444';
+        glowColor = 'rgba(239, 68, 68, 0.5)';
+        label = 'Hypoperfusion Risk (<65)';
+        risks.push('Risk of renal impairment, cerebral ischemia, and myocardial hypoperfusion.');
+      } else if (map >= 65 && map <= 100) {
+        if (map <= 93.3) {
+          activeColor = '#10b981';
+          glowColor = 'rgba(16, 185, 129, 0.4)';
+          label = 'Optimal Perfusion';
+        } else {
+          activeColor = '#06b6d4';
+          glowColor = 'rgba(6, 182, 212, 0.4)';
+          label = 'Normal MAP';
+        }
+        risks.push('Target perfusion pressure maintained for critical end-organs.');
+      } else if (map > 100 && map <= 110) {
+        activeColor = '#f59e0b';
+        glowColor = 'rgba(245, 158, 11, 0.4)';
+        label = 'Elevated MAP';
+        risks.push('Increased left ventricular workload & vascular wall tension.');
+      } else {
+        activeColor = '#ef4444';
+        glowColor = 'rgba(239, 68, 68, 0.5)';
+        label = 'Severe Hypertension (>110)';
+        risks.push('High stroke risk, acute vascular stiffness, and end-organ damage.');
+      }
+
+      // Evaluate Pulse Pressure Color & Risks
+      let ppColor = '#10b981';
+      if (pulsePressure < 30) {
+        ppColor = '#f59e0b';
+        risks.push('Narrow Pulse Pressure (<30 mmHg): Possible low stroke volume, heart failure, or aortic stenosis.');
+      } else if (pulsePressure > 50) {
+        ppColor = pulsePressure > 60 ? '#ef4444' : '#f59e0b';
+        risks.push('Wide Pulse Pressure (>50 mmHg): Associated with arterial stiffness, aortic regurgitation, or hyperthyroidism.');
+      } else {
+        ppColor = '#10b981';
+      }
+
+      // Update Styling & Colors Dynamically
+      mapVal.style.color = activeColor;
+      mapVal.style.textShadow = `0 0 20px ${glowColor}`;
+      ppVal.style.color = ppColor;
+
+      statusBadge.textContent = label;
+      statusBadge.style.color = activeColor;
+      statusBadge.style.backgroundColor = `${glowColor.replace('0.4', '0.15').replace('0.5', '0.15')}`;
+
+      card.style.borderColor = activeColor;
+      card.style.boxShadow = `0 0 30px ${glowColor}`;
+
+      // Update Dynamic Risks
+      riskList.innerHTML = risks.map(r => `<li>${r}</li>`).join('');
+    }
+
+    // Initial Calculation
+    calculateMetrics();
+  </script>
+</body>
+</html>
